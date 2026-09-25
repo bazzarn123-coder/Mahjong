@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+    <title>Mobile Mahjong</title>
+    
+    <!-- Embedded SVG Favicon for Browser Tab / Address Bar -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231b4332'/><rect x='15' y='10' width='70' height='80' rx='10' fill='%23fdfbf7' stroke='%23ccc' stroke-width='3'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='%23d32f2f'>🀄</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%231b4332'/><rect x='15' y='10' width='70' height='80' rx='10' fill='%23fdfbf7' stroke='%23ccc' stroke-width='3'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='%23d32f2f'>🀄</text></svg>">
+
+    <style>
+        :root {
+            --tile-w: 62px;
+            --tile-h: 82px;
+            --bg-color: #1b4332;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Screen Management */
+        .screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+        .screen.active {
+            display: flex;
+        }
+
+        /* Splash Screen Design */
+        #splash-screen {
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            background: radial-gradient(circle, #2d6a4f 0%, #1b4332 100%);
+            overflow-y: auto;
+        }
+
+        .menu-card {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid #52b788;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            text-align: center;
+            color: white;
+            margin: auto;
+        }
+
+        .menu-title {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #74c69d;
+            margin-bottom: 20px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .menu-label {
+            display: block;
+            text-align: left;
+            font-size: 0.9rem;
+            color: #d8f3dc;
+            margin: 12px 0 6px;
+            font-weight: bold;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .opt-btn {
+            background: #2d6a4f;
+            border: 2px solid #40916c;
+            color: white;
+            padding: 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .opt-btn.active {
+            background: #52b788;
+            border-color: #b7e4c7;
+            color: #081c15;
+            box-shadow: 0 0 10px rgba(82, 183, 136, 0.5);
+        }
+
+        .start-btn {
+            width: 100%;
+            background: #52b788;
+            color: #081c15;
+            border: none;
+            padding: 14px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 10px;
+            margin-top: 12px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
+        .start-btn:active {
+            transform: scale(0.98);
+        }
+
+        .resume-btn {
+            background: #eab308;
+            color: #081c15;
+        }
+
+        /* Gameplay Interface */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 18px;
+            background: rgba(0, 0, 0, 0.4);
+            color: white;
+            z-index: 100;
+        }
+
+        .stats {
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .controls button {
+            background: #2d6a4f;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: bold;
+            margin-left: 4px;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .controls button:active {
+            background: #40916c;
+            transform: translateY(1px);
+        }
+
+        #game-board {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            height: 100%;
+            touch-action: manipulation;
+            overflow: auto;
+        }
+
+        .tile {
+            position: absolute;
+            width: var(--tile-w);
+            height: var(--tile-h);
+            background: #fdfbf7;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 46px;
+            cursor: pointer;
+            box-shadow: 
+                -1px 1px 0 #d0d0d0,
+                -2px 2px 0 #b0b0b0,
+                -3px 3px 0 #006400,
+                -4px 4px 0 #004d00,
+                -6px 6px 8px rgba(0,0,0,0.5);
+            transition: transform 0.1s ease, filter 0.1s ease;
+        }
+
+        .tile.selected {
+            background: #fff3bf;
+            transform: translate(-3px, -3px);
+            box-shadow: 
+                -1px 1px 0 #d0d0d0,
+                -2px 2px 0 #b0b0b0,
+                -3px 3px 0 #d97706,
+                -5px 5px 0 #b45309,
+                -6px 6px 12px rgba(217, 119, 6, 0.7);
+        }
+
+        @keyframes hintPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.12) translate(-2px, -2px); }
+            100% { transform: scale(1); }
+        }
+
+        .tile.hint {
+            background: #fef08a !important;
+            animation: hintPulse 0.8s infinite alternate;
+            box-shadow: 
+                0 0 15px #eab308,
+                -1px 1px 0 #d0d0d0,
+                -2px 2px 0 #b0b0b0,
+                -3px 3px 0 #ca8a04,
+                -5px 5px 0 #a16207;
+            z-index: 999 !important;
+        }
+
+        .tile.blocked {
+            filter: brightness(0.7);
+        }
+
+        #message-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.85);
+            color: white;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #message-overlay h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-align: center;
+            padding: 0 16px;
+        }
+
+        #message-overlay button {
+            background: #52b788;
+            color: #081c15;
+            border: none;
+            padding: 14px 28px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SPLASH / MAIN MENU SCREEN -->
+    <div id="splash-screen" class="screen active">
+        <div class="menu-card">
+            <div class="menu-title">🀄 MAHJONG</div>
+            
+            <label class="menu-label">Tile Set Choice</label>
+            <div class="options-grid" style="grid-template-columns: 1fr;">
+                <button class="opt-btn active" id="deck-classic" onclick="setDeck('classic')">Classic Mix (Suits & Honors)</button>
+                <button class="opt-btn" id="deck-honors" onclick="setDeck('honors')">Dragons & Winds Focus</button>
+                <button class="opt-btn" id="deck-suits" onclick="setDeck('suits')">Circles & Bamboo Focus</button>
+                <button class="opt-btn" id="deck-emojis" onclick="setDeck('emojis')">Expressive Emojis 😄🚀🔥</button>
+                <button class="opt-btn" id="deck-animals" onclick="setDeck('animals')">Wild Animals 🐶🦁🐼</button>
+            </div>
+
+            <button id="btn-resume" class="start-btn resume-btn" style="display: none;" onclick="resumeGame()">RESUME GAME</button>
+            <button class="start-btn" onclick="startNewGame()">NEW GAME</button>
+        </div>
+    </div>
+
+    <!-- MAIN GAMEPLAY SCREEN -->
+    <div id="game-screen" class="screen">
+        <header>
+            <div class="stats">
+                <div>Tiles: <span id="tile-count">0</span></div>
+            </div>
+            <div class="controls">
+                <button id="btn-hint">Hint</button>
+                <button id="btn-menu">Menu</button>
+            </div>
+        </header>
+
+        <div id="game-board"></div>
+    </div>
+
+    <div id="message-overlay">
+        <h2 id="message-text">You Win!</h2>
+        <button id="btn-next-level" onclick="initGame()">Continue</button>
+    </div>
+
+    <script>
+        const DECKS = {
+            classic: ['🀙','🀚','🀛','🀜','🀝','🀞','🀐','🀑','🀒','🀓','🀔','🀕','🀇','🀈','🀉','🀊','🀋','🀌','🀀','🀁','🀂','🀃','🀄','🀅','🀆'],
+            honors:  ['🀀','🀁','🀂','🀃','🀄','🀅','🀆','🀇','🀈','🀉','🀊'],
+            suits:   ['🀙','🀚','🀛','🀜','🀝','🀞','🀐','🀑','🀒','🀓','🀔','🀕'],
+            emojis:  ['😀','😎','😍','🥳','🤪','🤠','👻','🤖','👽','👑','🔥','⭐','🎉','🚀','💎','🍿','🍕','🎨','🎯','⚽'],
+            animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐵','🐧','🐦','🦄','🐝','🐙','🐬']
+        };
+
+        const MASTER_LAYOUT = [
+            // Layer 0
+            {x: 0, y: 1, z: 0}, {x: 1, y: 1, z: 0}, {x: 2, y: 1, z: 0}, {x: 3, y: 1, z: 0}, {x: 4, y: 1, z: 0}, {x: 5, y: 1, z: 0},
+            {x: 0, y: 2, z: 0}, {x: 1, y: 2, z: 0}, {x: 2, y: 2, z: 0}, {x: 3, y: 2, z: 0}, {x: 4, y: 2, z: 0}, {x: 5, y: 2, z: 0},
+            {x: 0, y: 3, z: 0}, {x: 1, y: 3, z: 0}, {x: 2, y: 3, z: 0}, {x: 3, y: 3, z: 0}, {x: 4, y: 3, z: 0}, {x: 5, y: 3, z: 0},
+            {x: 1, y: 0, z: 0}, {x: 2, y: 0, z: 0}, {x: 3, y: 0, z: 0}, {x: 4, y: 0, z: 0},
+            {x: 1, y: 4, z: 0}, {x: 2, y: 4, z: 0}, {x: 3, y: 4, z: 0}, {x: 4, y: 4, z: 0},
+            {x: -0.8, y: 2, z: 0}, {x: 5.8, y: 2, z: 0},
+
+            // Layer 1
+            {x: 1, y: 1, z: 1}, {x: 2, y: 1, z: 1}, {x: 3, y: 1, z: 1}, {x: 4, y: 1, z: 1},
+            {x: 1, y: 2, z: 1}, {x: 2, y: 2, z: 1}, {x: 3, y: 2, z: 1}, {x: 4, y: 2, z: 1},
+            {x: 1, y: 3, z: 1}, {x: 2, y: 3, z: 1}, {x: 3, y: 3, z: 1}, {x: 4, y: 3, z: 1},
+            {x: 1.5, y: 1.5, z: 1}, {x: 2.5, y: 1.5, z: 1}, {x: 3.5, y: 1.5, z: 1},
+            {x: 1.5, y: 2.5, z: 1}, {x: 2.5, y: 2.5, z: 1}, {x: 3.5, y: 2.5, z: 1},
+            {x: 0.5, y: 2, z: 1}, {x: 4.5, y: 2, z: 1},
+
+            // Layer 2
+            {x: 2, y: 1.5, z: 2}, {x: 3, y: 1.5, z: 2}, {x: 2, y: 2.5, z: 2}, {x: 3, y: 2.5, z: 2},
+            {x: 1.5, y: 2, z: 2}, {x: 3.5, y: 2, z: 2}, {x: 2.5, y: 1, z: 2}, {x: 2.5, y: 3, z: 2},
+
+            // Layer 3
+            {x: 2.5, y: 1.8, z: 3}, {x: 2.5, y: 2.2, z: 3},
+            {x: 2.1, y: 2.0, z: 3}, {x: 2.9, y: 2.0, z: 3}
+        ];
+
+        let currentTileCount = 32;
+        let currentDeckKey = 'classic';
+        let board = [];
+        let selectedTile = null;
+        let highlightedHintTiles = [];
+
+        const boardEl = document.getElementById('game-board');
+        const tileCountEl = document.getElementById('tile-count');
+        const overlayEl = document.getElementById('message-overlay');
+        const messageTextEl = document.getElementById('message-text');
+        const resumeBtn = document.getElementById('btn-resume');
+
+        document.getElementById('btn-hint').addEventListener('click', giveHint);
+        document.getElementById('btn-menu').addEventListener('click', showMenu);
+
+        window.addEventListener('load', checkSaveState);
+
+        function checkSaveState() {
+            const savedGame = localStorage.getItem('mahjong_save');
+            if (savedGame) {
+                resumeBtn.style.display = 'block';
+            } else {
+                resumeBtn.style.display = 'none';
+            }
+        }
+
+        function saveGameState() {
+            if (board.length === 0) {
+                localStorage.removeItem('mahjong_save');
+                return;
+            }
+            const saveData = {
+                currentTileCount,
+                currentDeckKey,
+                board: board.map(t => ({ id: t.id, x: t.x, y: t.y, z: t.z, value: t.value }))
+            };
+            localStorage.setItem('mahjong_save', JSON.stringify(saveData));
+            checkSaveState();
+        }
+
+        function setDeck(deck) {
+            currentDeckKey = deck;
+            document.querySelectorAll('#splash-screen .options-grid .opt-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.getElementById(`deck-${deck}`).classList.add('active');
+        }
+
+        function showMenu() {
+            overlayEl.style.display = 'none';
+            checkSaveState();
+            document.getElementById('game-screen').classList.remove('active');
+            document.getElementById('splash-screen').classList.add('active');
+        }
+
+        function startNewGame() {
+            localStorage.removeItem('mahjong_save');
+            document.getElementById('splash-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+            currentTileCount = 32;
+            initGame();
+        }
+
+        function resumeGame() {
+            const saveDataStr = localStorage.getItem('mahjong_save');
+            if (!saveDataStr) return startNewGame();
+
+            const saveData = JSON.parse(saveDataStr);
+            currentTileCount = saveData.currentTileCount;
+            setDeck(saveData.currentDeckKey);
+
+            document.getElementById('splash-screen').classList.remove('active');
+            document.getElementById('game-screen').classList.add('active');
+
+            overlayEl.style.display = 'none';
+            boardEl.innerHTML = '';
+            selectedTile = null;
+            clearHints();
+
+            board = saveData.board.map(pos => ({ ...pos, element: null }));
+            renderBoard();
+            updateTileStates();
+        }
+
+        function clearHints() {
+            highlightedHintTiles.forEach(tile => {
+                if (tile && tile.element) tile.element.classList.remove('hint');
+            });
+            highlightedHintTiles = [];
+        }
+
+        function isTileFreeInList(tile, currentBoard) {
+            const isCovered = currentBoard.some(other => 
+                other.z === tile.z + 1 &&
+                Math.abs(other.x - tile.x) < 1 &&
+                Math.abs(other.y - tile.y) < 1
+            );
+            if (isCovered) return false;
+
+            const blockedLeft = currentBoard.some(other => 
+                other.z === tile.z &&
+                other.x === tile.x - 1 &&
+                Math.abs(other.y - tile.y) < 1
+            );
+
+            const blockedRight = currentBoard.some(other => 
+                other.z === tile.z &&
+                other.x === tile.x + 1 &&
+                Math.abs(other.y - tile.y) < 1
+            );
+
+            return !(blockedLeft && blockedRight);
+        }
+
+        function isTileFree(tile) {
+            return isTileFreeInList(tile, board);
+        }
+
+        function generateSolvableBoard() {
+            const activeLayout = MASTER_LAYOUT.slice(0, currentTileCount);
+            const activeDeck = DECKS[currentDeckKey];
+
+            let tempPositions = activeLayout.map((pos, index) => ({ id: index, ...pos }));
+            let pairedValues = new Array(activeLayout.length);
+
+            while (tempPositions.length > 0) {
+                let freePositions = tempPositions.filter(pos => isTileFreeInList(pos, tempPositions));
+                
+                if (freePositions.length < 2) {
+                    return generateSolvableBoard();
+                }
+
+                let p1 = freePositions.splice(Math.floor(Math.random() * freePositions.length), 1)[0];
+                let p2 = freePositions.splice(Math.floor(Math.random() * freePositions.length), 1)[0];
+
+                let randomSymbol = activeDeck[Math.floor(Math.random() * activeDeck.length)];
+                pairedValues[p1.id] = randomSymbol;
+                pairedValues[p2.id] = randomSymbol;
+
+                tempPositions = tempPositions.filter(pos => pos.id !== p1.id && pos.id !== p2.id);
+            }
+
+            return activeLayout.map((pos, index) => ({
+                id: index,
+                x: pos.x,
+                y: pos.y,
+                z: pos.z,
+                value: pairedValues[index],
+                element: null
+            }));
+        }
+
+        function initGame() {
+            overlayEl.style.display = 'none';
+            boardEl.innerHTML = '';
+            selectedTile = null;
+            clearHints();
+
+            board = generateSolvableBoard();
+            renderBoard();
+            updateTileStates();
+            saveGameState();
+        }
+
+        function renderBoard() {
+            const boardWidth = boardEl.clientWidth;
+            const tileW = 62;
+            const tileH = 82;
+            
+            const offsetX = Math.max(10, (boardWidth - (5.5 * tileW)) / 2);
+            const offsetY = 30;
+
+            board.forEach(tile => {
+                const el = document.createElement('div');
+                el.classList.add('tile');
+                el.innerText = tile.value;
+                
+                if (['🀀','🀁','🀂','🀃','🀅'].includes(tile.value)) el.style.color = '#2e7d32';
+                else if (['🀄'].includes(tile.value)) el.style.color = '#c62828';
+                else el.style.color = '#1565c0';
+
+                const left = offsetX + (tile.x * tileW) - (tile.z * 4);
+                const top = offsetY + (tile.y * tileH) - (tile.z * 4);
+
+                el.style.left = `${left}px`;
+                el.style.top = `${top}px`;
+                el.style.zIndex = tile.z * 10 + Math.floor(tile.y * 2);
+
+                el.addEventListener('click', () => handleTileClick(tile));
+                
+                tile.element = el;
+                boardEl.appendChild(el);
+            });
+
+            tileCountEl.innerText = board.length;
+        }
+
+        function updateTileStates() {
+            board.forEach(tile => {
+                if (isTileFree(tile)) {
+                    tile.element.classList.remove('blocked');
+                } else {
+                    tile.element.classList.add('blocked');
+                }
+            });
+        }
+
+        function findAvailableMove() {
+            const freeTiles = board.filter(isTileFree);
+            for (let i = 0; i < freeTiles.length; i++) {
+                for (let j = i + 1; j < freeTiles.length; j++) {
+                    if (freeTiles[i].value === freeTiles[j].value) {
+                        return [freeTiles[i], freeTiles[j]];
+                    }
+                }
+            }
+            return null;
+        }
+
+        function giveHint() {
+            clearHints();
+
+            const pair = findAvailableMove();
+            if (pair) {
+                highlightedHintTiles = pair;
+                pair.forEach(tile => tile.element.classList.add('hint'));
+            } else {
+                checkGameEnd();
+            }
+        }
+
+        function handleTileClick(tile) {
+            if (!isTileFree(tile)) return;
+            clearHints();
+
+            if (!selectedTile) {
+                selectedTile = tile;
+                tile.element.classList.add('selected');
+            } else if (selectedTile.id === tile.id) {
+                selectedTile.element.classList.remove('selected');
+                selectedTile = null;
+            } else if (selectedTile.value === tile.value) {
+                removeTile(selectedTile);
+                removeTile(tile);
+                selectedTile = null;
+
+                updateTileStates();
+                saveGameState();
+                checkGameEnd();
+            } else {
+                selectedTile.element.classList.remove('selected');
+                selectedTile = tile;
+                tile.element.classList.add('selected');
+            }
+        }
+
+        function removeTile(tile) {
+            tile.element.remove();
+            board = board.filter(t => t.id !== tile.id);
+            tileCountEl.innerText = board.length;
+        }
+
+        function checkGameEnd() {
+            if (board.length === 0) {
+                currentTileCount = Math.min(64, currentTileCount + 4);
+                localStorage.removeItem('mahjong_save');
+                showMessage(`You Win! 🎉 Next level will have ${currentTileCount} tiles!`);
+                return;
+            }
+
+            const move = findAvailableMove();
+            if (!move) {
+                currentTileCount = Math.max(32, currentTileCount - 4);
+                localStorage.removeItem('mahjong_save');
+                showMessage(`No More Moves! 😞 Reverting back to previous level (${currentTileCount} tiles).`);
+            }
+        }
+
+        function showMessage(text) {
+            messageTextEl.innerText = text;
+            overlayEl.style.display = 'flex';
+        }
+
+        window.addEventListener('resize', () => {
+            if (board.length > 0) {
+                const boardWidth = boardEl.clientWidth;
+                const tileW = 62;
+                const tileH = 82;
+                const offsetX = Math.max(10, (boardWidth - (5.5 * tileW)) / 2);
+                const offsetY = 30;
+
+                board.forEach(tile => {
+                    const left = offsetX + (tile.x * tileW) - (tile.z * 4);
+                    const top = offsetY + (tile.y * tileH) - (tile.z * 4);
+                    tile.element.style.left = `${left}px`;
+                    tile.element.style.top = `${top}px`;
+                });
+            }
+        });
+    </script>
+</body>
+</html>
